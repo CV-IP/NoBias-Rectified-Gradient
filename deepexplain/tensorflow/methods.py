@@ -235,11 +235,11 @@ class RectifiedGradient(GradientBasedMethod):
 Rectified Gradient without final multiplication with input features
 """
 
-class RectifiedGradientNew(GradientBasedMethod):
+class NoBiasRectifiedGradient(GradientBasedMethod):
     q = None
 
     def __init__(self, T, X, xs, session, keras_learning_phase, percentile=98):
-        super(RectifiedGradientNew, self).__init__(T, X, xs, session, keras_learning_phase)
+        super(NoBiasRectifiedGradient, self).__init__(T, X, xs, session, keras_learning_phase)
         global q
         q = percentile
 
@@ -709,7 +709,7 @@ attribution_methods = OrderedDict({
     'deeplift': (DeepLIFTRescale, 11),
     'occlusion': (Occlusion, 12),
     'rectgradmod': (RectifiedGradientMod, 13),
-    'rectgradnew': (RectifiedGradientNew, 14)
+    'nobias_rectgrad': (NoBiasRectifiedGradient, 14)
 })
 
 
