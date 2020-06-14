@@ -202,6 +202,7 @@ class RectifiedGradient(GradientBasedMethod):
         
 #         return tf.nn.relu(activation_grad)
         
+        # This is where the multiplication with input features is performed
         return [g * x for g, x in zip(
             tf.gradients(self.T, self.X),
             self.X if self.has_multiple_inputs else [self.X])]
@@ -231,9 +232,63 @@ class RectifiedGradient(GradientBasedMethod):
 
 
 """
-Rectified Gradient
+Rectified Gradient without final multiplication with input features
 """
 
+class RectifiedGradientNew(GradientBasedMethod):
+    q = None
+
+    def __init__(self, T, X, xs, session, keras_learning_phase, percentile=98):
+        super(RectifiedGradientNew, self).__init__(T, X, xs, session, keras_learning_phase)
+        global q
+        q = percentile
+
+    def get_symbolic_attribution(self):
+        
+#         activation_grad = tf.gradients(self.T, self.X) * self.X
+#         thresh = threshold(activation_grad, 95)
+        
+#         return tf.where(thresh < activation_grad, activation_grad, tf.zeros_like(activation_grad))
+        
+#         return tf.nn.relu(activation_grad)
+
+        # Here the multiplication with input features is omitted
+        return tf.gradients(self.T, self.X)
+        
+    @classmethod
+    def nonlinearity_grad_override(cls, op, grad):
+        
+        activation_grad = op.outputs[0] * grad
+        thresh = threshold(activation_grad, q)
+        
+        return tf.where(thresh < activation_grad, grad, tf.zeros_like(grad))
+    
+#     @classmethod
+#     def nonlinearity_grad_override(cls, op, grad):
+        
+#         #activation_grad = op.outputs[0]
+#         #thresh = threshold(activation_grad, q)
+#         return tf.where(op.inputs[0] > q, tf.nn.relu(grad), tf.zeros_like(grad))
+
+    
+    @classmethod
+    def conv2d_grad_override(cls, op, grad):
+        
+        if op.get_attr('padding') == b'SAME':
+        
+            shape = tf.shape(grad)
+            mask = tf.ones([shape[0], shape[1] - 2, shape[2] - 2, shape[3]])
+            mask = tf.pad(mask, [[0,0],[1,1],[1,1],[0,0]])
+            grad = grad * mask
+
+        input_grad = tf.nn.conv2d_backprop_input(tf.shape(op.inputs[0]), op.inputs[1], grad, op.get_attr('strides'), op.get_attr('padding'))
+        filter_grad = tf.nn.conv2d_backprop_filter(op.inputs[0], tf.shape(op.inputs[1]), grad, op.get_attr('strides'), op.get_attr('padding'))
+
+        return input_grad, filter_grad
+    
+"""
+Rectified Gradient
+"""
 
 class RectifiedGradientMod(GradientBasedMethod):
     q = None
@@ -653,7 +708,8 @@ attribution_methods = OrderedDict({
     'elrp': (EpsilonLRP, 10),
     'deeplift': (DeepLIFTRescale, 11),
     'occlusion': (Occlusion, 12),
-    'rectgradmod': (RectifiedGradientMod, 13)
+    'rectgradmod': (RectifiedGradientMod, 13),
+    'rectgradnew': (RectifiedGradientNew, 14)
 })
 
 
